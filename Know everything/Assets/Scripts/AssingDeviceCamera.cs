@@ -10,7 +10,7 @@ public class AssingDeviceCamera : MonoBehaviour
     public UnityEngine.UI.RawImage m_RawImage;
 
     private bool m_CameraIsPlaying;
-    public System.Action<byte[]> m_Action;
+    public System.Action<byte[],Unity.UIWidgets.ui.Window> OnTakePhotoCallback;
     private static AssingDeviceCamera Instance;
     public static AssingDeviceCamera GetAssingDeviceCamera
     {
@@ -23,12 +23,12 @@ public class AssingDeviceCamera : MonoBehaviour
     }
 
 
-    public void StartCamera()
+    public void StartCamera(Unity.UIWidgets.ui.Window instance)
     {
         if(!m_CameraIsPlaying)
             StartCoroutine(InvokeCamera());
         else
-            StartCoroutine(TakePhoto());
+            StartCoroutine(TakePhoto(instance));
 
     }
 
@@ -54,7 +54,7 @@ public class AssingDeviceCamera : MonoBehaviour
         }
     }
 
-    private IEnumerator TakePhoto()
+    private IEnumerator TakePhoto(Unity.UIWidgets.ui.Window instance)
     {
         yield return new WaitForEndOfFrame();
 
@@ -65,19 +65,20 @@ public class AssingDeviceCamera : MonoBehaviour
         t2d.Apply(false);
         t2d.Compress(true);
         byte[] bytes = t2d.EncodeToJPG(80);
-#if UNITY_EDITOR
-        System.IO.File.WriteAllBytes(Application.dataPath + "/test.png", bytes);
-#endif
 
         //Destroy camera and texture
         m_CameraIsPlaying = false;
         m_WebCamTexture.Stop();
         Destroy(m_WebCamTexture);
         m_WebCamTexture = null;
-        if (m_Action != null) m_Action.Invoke(bytes);
+
+        if (OnTakePhotoCallback != null) 
+        {
+            OnTakePhotoCallback.Invoke(bytes, instance);
+        }
 
         m_RawImage.gameObject.SetActive(false);
         yield return new WaitForSeconds(0.25f);
-        yield return StartCoroutine(FindObjectOfType<BaiduAI>().AIDetect(bytes));
+        yield return StartCoroutine(FindObjectOfType<BaiduAI>().AIDetect(bytes, instance));
     }
 }

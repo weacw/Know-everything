@@ -18,11 +18,12 @@ public class BaiduAI : MonoBehaviour
     public string APP_ID = "你的 App ID";
     public string API_KEY = "你的 Api Key";
     public string SECRET_KEY = "你的 Secret Key";
-    private Baidu.Aip.ImageClassify.ImageClassify client;
-    public string path;
-    public Newtonsoft.Json.Linq.JObject Result { get; private set; }
 
-    public static System.Action OnResultCallback;
+
+    private Baidu.Aip.ImageClassify.ImageClassify client;
+
+    public static string ResultString { get; private set; }
+    public static System.Action<string,Unity.UIWidgets.ui.Window> OnResultCallback;
     public static DetectType detectType;
 
     // Start is called before the first frame update
@@ -34,43 +35,55 @@ public class BaiduAI : MonoBehaviour
         };
     }
 
-    public IEnumerator AIDetect(byte[] bytes)
+    public IEnumerator AIDetect(byte[] bytes,Unity.UIWidgets.ui.Window window)
     {
         yield return null;
-        //try
+        Newtonsoft.Json.Linq.JObject Result=null;
+        try
         {
+            Dictionary<string, object> options = new Dictionary<string, object>{};
+            options.Clear();
+
             switch (detectType)
             {
                 case DetectType.General:
-                    Result = client.AdvancedGeneral(bytes);
+                    options.Add("baike_num", 5);
+                    Result = client.AdvancedGeneral(bytes, options);
                     break;
                 case DetectType.Dish:
-                    Result = client.DishDetect(bytes);
+                    options.Add("baike_num", 5);
+                    options.Add("filter_threshold", 0.7f);
+
+                    Result = client.DishDetect(bytes, options);
                     break;
                 case DetectType.Car:
-                    Result = client.CarDetect(bytes);
+                    options.Add("baike_num", 5);
+                    options.Add("top_num", 1);
+                    Result = client.CarDetect(bytes, options);
                     break;
                 case DetectType.Logo:
                     Result = client.LogoSearch(bytes);
                     break;
                 case DetectType.Animal:
-                    Result = client.AnimalDetect(bytes);
+                    options.Add("baike_num", 5);
+                    options.Add("top_num", 6);
+                    Result = client.AnimalDetect(bytes, options);
                     break;
                 case DetectType.Plant:
-                    Result = client.PlantDetect(bytes);
+                    options.Add("baike_num", 5);
+                    Result = client.PlantDetect(bytes, options);
                     break;
                 case DetectType.Landmark:
                     Result = client.Landmark(bytes);
                     break;
             }
 
-            Debug.Log(Result);
-            if (OnResultCallback != null) OnResultCallback.Invoke();
-            //var tmp_result = result.ToObject<Result>();
+            ResultString = Result.ToString();
+            if (OnResultCallback != null) OnResultCallback.Invoke(ResultString,window);
         }
-        //catch (System.Exception ex)
-        //{
-        //    Debug.LogError(ex.Message);
-        //}
+        catch (System.Exception ex)
+        {
+            Debug.LogError(ex.Message);
+        }
     }
 }

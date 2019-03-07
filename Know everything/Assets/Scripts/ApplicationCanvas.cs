@@ -13,11 +13,24 @@ using TextStyle = Unity.UIWidgets.painting.TextStyle;
 using Rect = Unity.UIWidgets.ui.Rect;
 using Unity.UIWidgets.animation;
 using Material = Unity.UIWidgets.material.Material;
-using Image = Unity.UIWidgets.widgets.Image;
 using System;
 
 public class ApplicationCanvas : WidgetCanvas
 {
+    private static MultiLanguage instance;
+    public static MultiLanguage language
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = Resources.Load<MultiLanguage>("CN");
+                Debug.Assert(instance != null, "language.instance is null.");
+            }
+            return instance;
+        }
+    }
+
     protected override string initialRoute => "/";
     protected override Dictionary<string, WidgetBuilder> routes
     {
@@ -25,7 +38,6 @@ public class ApplicationCanvas : WidgetCanvas
         {
             return new Dictionary<string, WidgetBuilder>
             {
-                {"EntryView",(context)=>new EntryView() },
                 {"2",(context)=>new CircularProgress()},
                 {"/",(context)=>new MainScreen()},
                 {"Result",(context)=>new Resultfulstate()}
@@ -60,117 +72,16 @@ public class ApplicationCanvas : WidgetCanvas
 }
 
 
-#region Entry view
-public class EntryView : StatefulWidget
-{
-    public int index = 0;
-    public EntryView(Key key=null) : base(key)
-    {
-    }
-
-    public override State createState()
-    {
-        return new EntryState();
-    }
-}
-
-public class EntryState : State<EntryView>
-{
-    public override Widget build(BuildContext context)
-    {
-        return  this._buildBody();
-    }
-
-
-    private Widget _pageProduct(string _url)
-    {
-        MediaQueryData mediaQueryData = MediaQuery.of(context);
-        return new Stack(
-                alignment: Alignment.topCenter,
-                children: new List<Widget>
-                {
-                    new Container(color:new Color(0xfffbfbfb)),
-                    new Container(
-                            child:Image.asset(_url,fit:BoxFit.cover),width:Screen.width,height:Screen.height
-                        ),
-                    new Container(
-                            margin:EdgeInsets.only(top:mediaQueryData.size.height*0.85f),
-                            child:_buildButton("Let's Go",OnLetsGoButtonClicked)
-
-                    ),
-                }
-            );
-    }
-
-
-    private void OnLetsGoButtonClicked() 
-    {
-        Navigator.pushName(context, "MainScreen");
-       BaiduAI.detectType = (DetectType)widget.index;
-    }
-
-    private Widget _buildBody()
-    {
-        return new Container(
-                    child: new PageView(
-                        onPageChanged:(i)=>widget.index=i,
-                        children: new List<Widget>
-                        {
-                            _pageProduct("animal"),
-                            _pageProduct("car"),
-                            _pageProduct("food"),
-                            _pageProduct("landmark"),
-                            //_pageProduct("http://imgsrc.baidu.com/imgad/pic/item/29381f30e924b899daf7d31b64061d950b7bf6ce.jpg"),
-                            //_pageProduct("http://imgsrc.baidu.com/imgad/pic/item/29381f30e924b899daf7d31b64061d950b7bf6ce.jpg"),
-                            //_pageProduct("http://imgsrc.baidu.com/imgad/pic/item/29381f30e924b899daf7d31b64061d950b7bf6ce.jpg"),
-                            //_pageProduct("http://imgsrc.baidu.com/imgad/pic/item/29381f30e924b899daf7d31b64061d950b7bf6ce.jpg"),
-                        }
-                    )
-                );
-    }
-
-    private Widget _buildCircleImage(string image,string name)
-    {
-        return new Container(
-                    height: 80,
-                    width: 80,
-                    margin: EdgeInsets.only(left: 50),
-                    decoration: new BoxDecoration(
-                            image: new DecorationImage(
-                                   image: new NetworkImage(url: image),
-                                   fit: BoxFit.cover
-                                ),
-                                shape: BoxShape.circle,
-                                border: Border.all(new Color(0xffffffff), 2)
-                        ),
-                        child:new Text(name,style:new TextStyle(color:new Color(0xffffffff)))
-                );
-    }
-
-    private Widget _buildButton(string btnName = "Default", VoidCallback onpressCallback = null)
-    {
-        return new FlatButton(
-                       child: new Text(btnName, style: new TextStyle(color: new Color(0xffffffff))),
-                       onPressed: onpressCallback,
-                       shape: new RoundedRectangleBorder(borderRadius: BorderRadius.all(20)),
-                       color: new Color(0xff00BBFF)
-                   );
-    }
-}
-
-#endregion
-
-
 
 
 
 #region Scan view
 public class MainScreen : StatefulWidget
 {
-    public bool hideImage=true;
+    public bool hideImage = true;
     internal byte[] bytes;
-  
-    public MainScreen(Key key=null) : base(key)
+
+    public MainScreen(Key key = null) : base(key)
     {
     }
 
@@ -180,69 +91,36 @@ public class MainScreen : StatefulWidget
     }
 }
 
-public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
+public class MainScreenState : State<MainScreen>
 {
-    private BuildContext context;
     List<Widget> selectItem = new List<Widget>();
     int prevIndex = 0;
-    int curIndex = 2;
-    AnimationController controller;
-    Animation<int> alpha;
-    Animation<float> position;
-    public List<int> iconsPoint = new List<int>
-    {
-        0x03e8,
-        0x03ef,
-        0x03ea,
-        0x03eb,
-        0x03ee,
-        0x03ec,
-        0x03e9,
-    };
 
     public override void initState()
     {
         base.initState();
-        AssingDeviceCamera.GetAssingDeviceCamera.m_Action += TakePhotoCallback;
+        AssingDeviceCamera.GetAssingDeviceCamera.OnTakePhotoCallback += TakePhotoCallback;
         BaiduAI.OnResultCallback += OnResultCallback;
-
-
-        for (int i = 0; i < Enum.GetNames(typeof(DetectType)).Length; i++)
+        Debug.Log(ApplicationCanvas.language);
+        for (int i = 0; i < ApplicationCanvas.language.resultLanguage.detectType.Count; i++)
         {
-            Togger togger = new Togger() { name = ((DetectType)i).ToString(),  id = i };
+            Togger togger = new Togger() { name = ApplicationCanvas.language.resultLanguage.detectType[i], id = i };
             selectItem.Add(togger);
         }
 
         BaiduAI.detectType = DetectType.General;
         prevIndex = 2;
 
-        controller = new AnimationController(duration: new TimeSpan(0, 0, 0, 0, milliseconds: 500), vsync: this);
-        CurvedAnimation curved = new CurvedAnimation(parent: controller, curve: Curves.easeIn);
-        alpha = new IntTween(0, 255).animate(curved);
-        position = new FloatTween(begin: 10f, end:0f).animate(curved);
-        controller.addListener(() => {
-            setState();
-        });
-
-
-        controller.addStatusListener((status) => { 
-            if(status == AnimationStatus.completed)
-            {
-                AssingDeviceCamera.GetAssingDeviceCamera.StartCoroutine(WaitToRest());
-            }
-
-        });
-        controller.forward();
 #if !UNITY_EDITOR
-        AssingDeviceCamera.GetAssingDeviceCamera.StartCamera();
+        AssingDeviceCamera.GetAssingDeviceCamera.StartCamera(Window.instance);
         setState();
 #endif
     }
-  
+
     public override void dispose()
     {
         base.dispose();
-        AssingDeviceCamera.GetAssingDeviceCamera.m_Action -= TakePhotoCallback;
+        AssingDeviceCamera.GetAssingDeviceCamera.OnTakePhotoCallback -= TakePhotoCallback;
         BaiduAI.OnResultCallback -= OnResultCallback;
 
         selectItem.Clear();
@@ -250,7 +128,6 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
 
     public override Widget build(BuildContext context)
     {
-        this.context = context;
         MediaQueryData mediaQueryData = MediaQuery.of(context);
         return new Stack(
                 alignment: Alignment.center,
@@ -267,9 +144,11 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
                                 _buildHeader(),
                                 _buildSelect(),
                                  new Container(margin:EdgeInsets.all(50)),
-                                _buildButton("Select Image",() => {Debug.Log("Select"); }),
+                                _buildButton(ApplicationCanvas.language.selectPhotoButtonName,() => {Debug.Log("Select"); }),
                                 new Container(margin:EdgeInsets.all(10)),
-                                _buildButton("Take Photo",AssingDeviceCamera.GetAssingDeviceCamera.StartCamera),
+                                _buildButton(ApplicationCanvas.language.scanObjectButtonName,()=>{
+                                    AssingDeviceCamera.GetAssingDeviceCamera.StartCamera(Window.instance);
+                                }),
 
                             }
                         )
@@ -282,13 +161,13 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
         return new Container(
                              height: 256,
                              width: 256,
-                             margin: EdgeInsets.only(top: 80, bottom: 20),
+                             margin: EdgeInsets.only(top: 80),
                              decoration: new BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(width: 2, color: new Color(0xFF1E90FF))
                             ),
                             child: new Stack(
-                                    children:new List<Widget>
+                                    children: new List<Widget>
                                     {
                                         _buildCircleImage(),
                                         //_buildIcon(),
@@ -298,30 +177,12 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
                  );
     }
 
-    private Widget _buildIcon()
-    {
-
-        return new Container(
-                    transfrom:Matrix3.makeTrans(position.value,0),
-                    alignment: Alignment.center,
-                    child: new Column(
-                            children:new List<Widget>
-                            {
-                                new Container(
-                                        margin:EdgeInsets.all(25)
-                                    ),
-                                new Icon(new IconData(iconsPoint[prevIndex], "Material Icon"), size: 150, color: Color.fromARGB(alpha.value, 0, 0, 0))
-                            }
-                        )
-                );
-    }
-
-
     private Widget _buildSelect()
     {
 
         return new Container(
                 width: Screen.width,
+                margin: EdgeInsets.only(top: 30),
                 child: new Column(
                         children: new List<Widget>
                         {
@@ -347,15 +208,24 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
 
     private Widget _buildCircleImage()
     {
+        ImageProvider imageProvider = null;
+        if (widget.bytes != null && widget.bytes.Length > 0)
+        {
+            imageProvider = new MemoryImage(bytes: widget.bytes);
+        }
+        else
+        {
+            imageProvider = new AssetImage("EmptyPage");
+        }
         return new Offstage(
             offstage: widget.hideImage,
             child: new Transform(
-                    alignment:Alignment.center,
-                    transform:Matrix3.makeRotate(Mathf.PI/2),
+                    alignment: Alignment.center,
+                    transform: Matrix3.makeRotate(Mathf.PI / 2),
                     child: new Container(
                             decoration: new BoxDecoration(
                                     image: new DecorationImage(
-                                       image: new MemoryImage(widget.bytes),
+                                       image: imageProvider,
                                        fit: BoxFit.cover
                                     ),
                                     shape: BoxShape.circle
@@ -368,7 +238,7 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
     private Widget _buildButton(string btnName = "Default", VoidCallback onpressCallback = null)
     {
         return new Material(
-                    child:new Center(
+                    child: new Center(
                              child: new FlatButton(
                    child: new Text(btnName, style: new TextStyle(color: new Color(0xffffffff))),
                        onPressed: onpressCallback,
@@ -383,21 +253,30 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
     private Widget _buildToggerSliderItem(string name)
     {
         return new Container(
-                child:new Text(name, textAlign: TextAlign.center)
+                child: new Text(name, textAlign: TextAlign.center)
             );
     }
 
-    private void TakePhotoCallback(byte[] bytes)
+
+
+
+
+
+
+    //Call back
+
+    private void TakePhotoCallback(byte[] bytes, Window disposable)
     {
-        widget.hideImage = false;
-        widget.bytes = bytes;
-        setState();
+        using (disposable.getScope())
+        {
+            widget.hideImage = false;
+            widget.bytes = bytes;
+            setState();
+        }
     }
 
     private void OnPageChange(int index)
     {
-        controller.reset();
-
         BaiduAI.detectType = (DetectType)index;
         Togger cur = selectItem[index] as Togger;
         cur.IsSelected.Invoke(true);
@@ -408,22 +287,15 @@ public class MainScreenState : SingleTickerProviderStateMixin<MainScreen>
 
         prevIndex = index;
 
-        controller.forward();
-
         setState();
     }
 
-    private System.Collections.IEnumerator WaitToRest()
+    private void OnResultCallback(string result, Window window)
     {
-        yield return new WaitForSeconds(1);
-        controller.reset();
-
-    }
-
-    private void OnResultCallback()
-    {
-        Debug.Log("Call back");
-        Navigator.pushName(context, "Result");
+        using (window.getScope())
+        {
+            Navigator.pushName(context, "Result");
+        }
     }
 }
 
@@ -431,10 +303,10 @@ public class Togger : StatefulWidget
 {
     public Action<bool> IsSelected;
     public string name;
-    public Color defaultColor= new Color(0xff8E8E8E);
+    public Color defaultColor = new Color(0xff8E8E8E);
     public int id;
 
-    public Togger(Key key=null) : base(key)
+    public Togger(Key key = null) : base(key)
     {
     }
 
@@ -447,12 +319,14 @@ public class Togger : StatefulWidget
 
 public class ToggerState : State<Togger>
 {
+    bool initFirst = false;
     public override void initState()
     {
         widget.IsSelected += IsSelectedCallback;
-        if(widget.id == 2)
+        if (widget.id == 2 && !initFirst)
         {
             widget.IsSelected(true);
+            initFirst = true;
         }
     }
 
@@ -460,11 +334,13 @@ public class ToggerState : State<Togger>
     {
         base.dispose();
         widget.IsSelected -= IsSelectedCallback;
+        initFirst = false;
     }
 
     public override Widget build(BuildContext context)
     {
         return new Container(
+                 padding: EdgeInsets.only(top: 2),
                  child: new Text(widget.name, textAlign: TextAlign.center, style: new TextStyle(color: widget.defaultColor))
              );
     }
@@ -472,9 +348,8 @@ public class ToggerState : State<Togger>
 
     private void IsSelectedCallback(bool selected)
     {
-
-       widget.defaultColor = selected ? new Color(0xff000000) : new Color(0xff8E8E8E);
-       setState();
+        widget.defaultColor = selected ? new Color(0xff000000) : new Color(0xff8E8E8E);
+        setState();
     }
 }
 
@@ -486,10 +361,10 @@ public class ToggerState : State<Togger>
 
 #region progress circular
 public class CircularProgress : StatefulWidget
-{ 
+{
     internal AnimationController controoler;
 
-    public CircularProgress(Key key=null) : base(key)
+    public CircularProgress(Key key = null) : base(key)
     {
     }
 
@@ -513,12 +388,13 @@ public class test : SingleTickerProviderStateMixin<CircularProgress>
     public override void initState()
     {
         base.initState();
-        widget.controoler = new AnimationController(vsync: this, duration: new System.TimeSpan(0,0,seconds: 3));
+        widget.controoler = new AnimationController(vsync: this, duration: new System.TimeSpan(0, 0, seconds: 3));
         bool isForward = true;
-        widget.controoler.addStatusListener((status) => {
+        widget.controoler.addStatusListener((status) =>
+        {
             if (status == AnimationStatus.forward)
                 isForward = true;
-            else if(status == AnimationStatus.completed|| status == AnimationStatus.dismissed)
+            else if (status == AnimationStatus.completed || status == AnimationStatus.dismissed)
             {
                 if (isForward)
                     widget.controoler.reverse();
@@ -573,7 +449,7 @@ public class CircularProgressPainter : CustomPainter
     private float total;
     private List<Color> colors;
 
-    public CircularProgressPainter(float strokeWidth = 10, bool strokeCapRound = false, Color backgroundColor = null, float radius = 1, float total = 2*Mathf.PI, List<float> stops = null, float value = 0,List<Color> colors=null)
+    public CircularProgressPainter(float strokeWidth = 10, bool strokeCapRound = false, Color backgroundColor = null, float radius = 1, float total = 2 * Mathf.PI, List<float> stops = null, float value = 0, List<Color> colors = null)
     {
         this.strokeWidth = strokeWidth;
         this.strokeCapRound = strokeCapRound;
@@ -621,10 +497,10 @@ public class CircularProgressPainter : CustomPainter
         paint.color = backgroundColor;
         canvas.drawArc(rect, start, total, false, paint);
 
-    
+
         if (value > 0)
         {
-            paint.shader = new SweepGradient(startAngle:0,endAngle:value,colors:colors,stops:stops).createShader(rect);
+            paint.shader = new SweepGradient(startAngle: 0, endAngle: value, colors: colors, stops: stops).createShader(rect);
         }
         canvas.drawArc(rect, start, value, false, paint);
     }
@@ -644,8 +520,7 @@ public class CircularProgressPainter : CustomPainter
 #region Result view
 public class Resultfulstate : StatefulWidget
 {
-    internal string result;
-    public Resultfulstate(Key key=null) : base(key)
+    public Resultfulstate(Key key = null) : base(key)
     {
     }
 
@@ -656,29 +531,245 @@ public class Resultfulstate : StatefulWidget
 }
 public class ResultState : State<Resultfulstate>
 {
+    private BaseData baseData;
     public override void initState()
     {
         base.initState();
-        //widget.result = UnityEngine.Object.FindObjectOfType<BaiduAI>().Result.ToString();
-        setState();
+        string json = BaiduAI.ResultString;
+        switch (BaiduAI.detectType)
+        {
+            case DetectType.Dish:
+                baseData = JsonUtility.FromJson<DishData>(json);
+                break;
+            case DetectType.General:
+                baseData = JsonUtility.FromJson<GeneralData>(json);
+                break;
+            case DetectType.Car:
+                baseData = JsonUtility.FromJson<CarData>(json);
+                break;
+            case DetectType.Logo:
+                baseData = JsonUtility.FromJson<LogoData>(json);
+                break;
+            case DetectType.Animal:
+                baseData = JsonUtility.FromJson<AnimalData>(json);
+                break;
+            case DetectType.Plant:
+                baseData = JsonUtility.FromJson<PlantData>(json);
+                break;
+            case DetectType.Landmark:
+                baseData = JsonUtility.FromJson<LandmarkData>(json);
+                break;
+        }
+    }
+    public override void dispose()
+    {
+        base.dispose();
+        AssingDeviceCamera.GetAssingDeviceCamera.StartCamera(Window.instance);
     }
     public override Widget build(BuildContext context)
+    { 
+        string keyword = ApplicationCanvas.language.resultLanguage.title;
+        string image_url = Application.streamingAssetsPath+"/"+ ApplicationCanvas.language.resultLanguage.headerImage;
+        string description = ApplicationCanvas.language.resultLanguage.descript;
+        string baike_url = string.Empty;
+
+
+        switch (BaiduAI.detectType)
+        {
+            case DetectType.Dish:
+                DishData dishData = baseData as DishData;
+                if (dishData.result.Count >= 1)
+                {
+                    DishResult result = dishData.result[0];
+                    keyword = result.name + string.Format("\nCalorie:{0}", result.calorie);
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+            case DetectType.Car:
+                CarData carData = baseData as CarData;
+                if (carData.result.Count >= 1)
+                {
+                    CarResult result = carData.result[0];
+                    keyword = result.name + string.Format("\n{0}", result.year);
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+            case DetectType.General:
+                GeneralData generalData = baseData as GeneralData;
+                if (generalData.result_num > 1)
+                {
+                    GeneralResult result = generalData.result[0];
+                    keyword = result.keyword;
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+            case DetectType.Logo:
+                LogoData logoData = baseData as LogoData;
+                if (logoData.result_num > 1)
+                {
+                    LogoResult result = logoData.result[0];
+                    keyword = result.name;
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+
+            case DetectType.Animal:
+                AnimalData animalData = baseData as AnimalData;
+                if (animalData.result.Count >= 1)
+                {
+                    AnimalResult result = animalData.result[0];
+                    keyword = result.name;
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+            case DetectType.Plant:
+                PlantData panltData = baseData as PlantData;
+                if (panltData.result.Count >= 1)
+                {
+                    PlantResult result = panltData.result[0];
+                    keyword = result.name;
+                    image_url = result.baike_info.image_url ?? image_url;
+                    description = result.baike_info.description ?? description;
+                    baike_url = result.baike_info.baike_url ?? baike_url;
+                }
+                return General(image_url, description, keyword, baike_url);
+            case DetectType.Landmark:
+                LandmarkData landmarkData = baseData as LandmarkData;
+                if (landmarkData.result != null)
+                {
+                    LandmaskResult result = landmarkData.result;
+                    keyword = string.IsNullOrEmpty(result.landmark)?keyword: result.landmark;
+                }
+                return General(image_url, description, keyword,baike_url);
+        }
+        return new Container();
+    }
+
+    #region General
+    private Widget General(string image_url = null, string detail = null, string title = null,string baike_url=null)
     {
+
+        List<Widget> bodyWidget = new List<Widget>{GeneralBaikeDetails(detail)};
+        if (!string.IsNullOrEmpty(baike_url))
+            bodyWidget.Add(GeneralBaikeButton(baike_url));
         return new Container(
-                child: new Stack(
-                        children:new List<Widget>
+                    height: Screen.height,
+                    color: new Color(0xfffbfbfb),
+                    child: new Column(
+                        children: new List<Widget>
                         {
-                            new Container(
-                                    width:Screen.width,
-                                    height:Screen.height,
-                                    color:new Color(0xfffbfbfb),
-                                    child:new Text(widget.result,maxLines:100)
-                                )
+                           _buildHeader(image_url,title,baike_url),
+                           _buildBody(bodyWidget),
                         }
-                    )
+                )
             );
     }
+
+    private Widget GeneralBaikeDetails(string detail)
+    {
+        return new Container(
+                  alignment: detail.Length < 20 ? Alignment.center : Alignment.topLeft,
+                  margin: EdgeInsets.all(30),
+                  child: new Text(detail, textAlign: TextAlign.left, style: new TextStyle(fontSize: 16, textBaseline: TextBaseline.ideographic, height: 2))
+              );
+    }
+
+    private Widget GeneralBaikeButton(string baike_url)
+    {
+        return new Container(
+                child: new Center(
+                        child: new FlatButton(
+                                    child: new Text(ApplicationCanvas.language.detailsButtonName, style: new TextStyle(color: new Color(0xffffffff))),
+                                    shape: new RoundedRectangleBorder(borderRadius: BorderRadius.all(20.0f)),
+                                    color: new Color(0xff00BBFF),
+                                    onPressed: () =>
+                                    {
+                                        if (!string.IsNullOrEmpty(baike_url))
+                                        {
+                                            Application.OpenURL(baike_url);
+                                        }
+                                    }
+                            )
+                    )
+        );
+    }
+    #endregion
+
+    private Widget _buildHeader(string image_url, string title,string baike_url)
+    {
+        MediaQueryData mediaQueryData = MediaQuery.of(context);
+        int lenght = title.Length;
+        int fontSize = 20;
+        if (lenght < 5)
+            fontSize = 30;
+        else if (lenght > 5 && lenght < 12)
+            fontSize = 20;
+        else if (lenght > 12)
+            fontSize = 16;
+        return new Container(
+                      child: new Stack(
+                          alignment: Alignment.topLeft,
+                          children: new List<Widget>
+                          {
+                            new Container(
+                                height:mediaQueryData.size.height*0.35f,
+                                width:mediaQueryData.size.width,
+                                child:Unity.UIWidgets.widgets.Image.network(image_url,fit:BoxFit.cover)
+                             ),
+                                new Container(
+                                decoration:new BoxDecoration(color:Color.fromARGB(100,0,0,0)),
+                                width:mediaQueryData.size.width,
+                                height:mediaQueryData.size.height*0.35f
+                             ),
+                            new Container(
+                                margin:EdgeInsets.only(top:Screen.height*0.03f,left:30),
+                                child:new GestureDetector(
+                                        child:new Text(ApplicationCanvas.language.returnButtonName,style:new TextStyle(color:new Color(0xffffffff))),
+                                        onTap:()=>{
+                                            Navigator.pop(context);
+                                            baseData=null;
+                                        }
+                                 )
+                            ),
+                            new Container(
+                                alignment:Alignment.center,
+                                //margin:EdgeInsets.only(top:Screen.height*0.08f),
+                                child:new Container(
+                                                    margin:EdgeInsets.all(100),
+                                                    child:new Text(title,
+                                                            style:new TextStyle(color:new Color(0xffffffff),fontSize:fontSize,fontWeight:FontWeight.w700),
+                                                            textAlign:TextAlign.center
+                                                         )
+                                          )
+                                ),
+                           }
+                       )
+                 );
+    }
+
+    private Widget _buildBody(List<Widget> widgets)
+    {
+        return new Container(
+                 child: new Flexible(
+                     child: new ListView(
+                         children: widgets
+                     )
+                 )
+             );
+    }
 }
+
+
 
 #endregion
 
