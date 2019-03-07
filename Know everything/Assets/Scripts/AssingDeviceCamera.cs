@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 
@@ -29,7 +28,6 @@ public class AssingDeviceCamera : MonoBehaviour
             StartCoroutine(InvokeCamera());
         else
             StartCoroutine(TakePhoto(instance));
-
     }
 
         
@@ -38,16 +36,20 @@ public class AssingDeviceCamera : MonoBehaviour
         yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
         if (Application.HasUserAuthorization(UserAuthorization.WebCam))
         {
-            WebCamDevice[] devices = WebCamTexture.devices;
-            string devicesName = devices[0].name;
-
-            m_WebCamTexture = new WebCamTexture(devicesName, Screen.width, Screen.height, 60)
+            if (m_WebCamTexture == null)
             {
-                wrapMode = TextureWrapMode.Repeat
-            };
-            m_RawImage.transform.localScale = new Vector3(-1.7f,1, 1);
-            m_RawImage.transform.localEulerAngles = new Vector3(0, 0, 90);  
-            m_RawImage.texture = m_WebCamTexture;
+                WebCamDevice[] devices = WebCamTexture.devices;
+                string devicesName = devices[0].name;
+
+                m_WebCamTexture = new WebCamTexture(devicesName, Screen.width, Screen.height, 60)
+                {
+                    wrapMode = TextureWrapMode.Repeat
+                };
+                m_RawImage.transform.localScale = new Vector3(-1.7f, 1, 1);
+                m_RawImage.transform.localEulerAngles = new Vector3(0, 0, 90);
+                m_RawImage.texture = m_WebCamTexture;
+            }
+
             m_WebCamTexture.Play();
             m_CameraIsPlaying = true;
             m_RawImage.gameObject.SetActive(true);
@@ -68,9 +70,10 @@ public class AssingDeviceCamera : MonoBehaviour
 
         //Destroy camera and texture
         m_CameraIsPlaying = false;
-        m_WebCamTexture.Stop();
-        Destroy(m_WebCamTexture);
-        m_WebCamTexture = null;
+        m_WebCamTexture.Pause();
+
+        //Destroy(m_WebCamTexture);
+        //m_WebCamTexture = null;
 
         if (OnTakePhotoCallback != null) 
         {
@@ -79,6 +82,6 @@ public class AssingDeviceCamera : MonoBehaviour
 
         m_RawImage.gameObject.SetActive(false);
         yield return new WaitForSeconds(0.25f);
-        yield return StartCoroutine(FindObjectOfType<BaiduAI>().AIDetect(bytes, instance));
+         BaiduAI.GetBaiduAI.AIDetect(bytes, instance);
     }
 }

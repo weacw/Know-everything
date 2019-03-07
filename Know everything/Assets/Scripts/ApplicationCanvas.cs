@@ -15,7 +15,7 @@ using Unity.UIWidgets.animation;
 using Material = Unity.UIWidgets.material.Material;
 using System;
 
-public class ApplicationCanvas : WidgetCanvas
+public class ApplicationCanvas : UIWidgetsPanel
 {
     private static MultiLanguage instance;
     public static MultiLanguage language
@@ -31,21 +31,21 @@ public class ApplicationCanvas : WidgetCanvas
         }
     }
 
-    protected override string initialRoute => "/";
-    protected override Dictionary<string, WidgetBuilder> routes
+    protected override Widget createWidget()
     {
-        get
-        {
-            return new Dictionary<string, WidgetBuilder>
-            {
-                {"2",(context)=>new CircularProgress()},
-                {"/",(context)=>new MainScreen()},
-                {"Result",(context)=>new Resultfulstate()}
-            };
-        }
+        return new WidgetsApp(
+                initialRoute: "/",
+                pageRouteBuilder: this.pageRouteBuilder,
+                routes: new Dictionary<string, WidgetBuilder> {
+                    {"/", (context) => new MainScreen()},
+                    {"Result", (context) => new Resultfulstate()},
+                    {"Circular", (context) => new CircularProgress()}
+
+                }
+            );
     }
 
-    protected override PageRouteFactory pageRouteBuilder
+    protected PageRouteFactory pageRouteBuilder
     {
         get
         {
@@ -64,6 +64,7 @@ public class ApplicationCanvas : WidgetCanvas
         }
     }
 
+
     protected override void OnEnable()
     {
         base.OnEnable();
@@ -80,6 +81,7 @@ public class MainScreen : StatefulWidget
 {
     public bool hideImage = true;
     internal byte[] bytes;
+    internal bool hideSpriteDemo=true;
 
     public MainScreen(Key key = null) : base(key)
     {
@@ -100,7 +102,7 @@ public class MainScreenState : State<MainScreen>
     {
         base.initState();
         AssingDeviceCamera.GetAssingDeviceCamera.OnTakePhotoCallback += TakePhotoCallback;
-        BaiduAI.OnResultCallback += OnResultCallback;
+        BaiduAI.GetBaiduAI.OnResultCallback += OnResultCallback;
         Debug.Log(ApplicationCanvas.language);
         for (int i = 0; i < ApplicationCanvas.language.resultLanguage.detectType.Count; i++)
         {
@@ -108,7 +110,7 @@ public class MainScreenState : State<MainScreen>
             selectItem.Add(togger);
         }
 
-        BaiduAI.detectType = DetectType.General;
+        BaiduAI.GetBaiduAI.detectType = DetectType.General;
         prevIndex = 2;
 
 #if !UNITY_EDITOR
@@ -121,7 +123,7 @@ public class MainScreenState : State<MainScreen>
     {
         base.dispose();
         AssingDeviceCamera.GetAssingDeviceCamera.OnTakePhotoCallback -= TakePhotoCallback;
-        BaiduAI.OnResultCallback -= OnResultCallback;
+        BaiduAI.GetBaiduAI.OnResultCallback -= OnResultCallback;
 
         selectItem.Clear();
     }
@@ -148,6 +150,7 @@ public class MainScreenState : State<MainScreen>
                                 new Container(margin:EdgeInsets.all(10)),
                                 _buildButton(ApplicationCanvas.language.scanObjectButtonName,()=>{
                                     AssingDeviceCamera.GetAssingDeviceCamera.StartCamera(Window.instance);
+                                    widget.hideSpriteDemo=false;
                                 }),
 
                             }
@@ -159,6 +162,7 @@ public class MainScreenState : State<MainScreen>
     private Widget _buildHeader()
     {
         return new Container(
+                             alignment:Alignment.center,
                              height: 256,
                              width: 256,
                              margin: EdgeInsets.only(top: 80),
@@ -169,6 +173,10 @@ public class MainScreenState : State<MainScreen>
                             child: new Stack(
                                     children: new List<Widget>
                                     {
+                                       new Offstage(
+                                           offstage:widget.hideSpriteDemo,
+                                           child: new Sample.SpriteDemo()
+                                       ),
                                         _buildCircleImage(),
                                         //_buildIcon(),
 
@@ -219,9 +227,10 @@ public class MainScreenState : State<MainScreen>
         }
         return new Offstage(
             offstage: widget.hideImage,
-            child: new Transform(
+            child: Transform.rotate(
                     alignment: Alignment.center,
-                    transform: Matrix3.makeRotate(Mathf.PI / 2),
+                    //transform: Matrix3.makeRotate(Mathf.PI / 2),
+                    degree:Mathf.PI/2,
                     child: new Container(
                             decoration: new BoxDecoration(
                                     image: new DecorationImage(
@@ -277,7 +286,7 @@ public class MainScreenState : State<MainScreen>
 
     private void OnPageChange(int index)
     {
-        BaiduAI.detectType = (DetectType)index;
+        BaiduAI.GetBaiduAI.detectType = (DetectType)index;
         Togger cur = selectItem[index] as Togger;
         cur.IsSelected.Invoke(true);
 
@@ -294,7 +303,10 @@ public class MainScreenState : State<MainScreen>
     {
         using (window.getScope())
         {
-            Navigator.pushName(context, "Result");
+            Navigator.pushNamed(context, "Result");
+            widget.hideSpriteDemo =true;
+            widget.bytes = null;
+            setState();
         }
     }
 }
@@ -381,15 +393,18 @@ public class test : SingleTickerProviderStateMixin<CircularProgress>
     private float strokeCapRound;
     private float value;
     private Color backgroundColor = new Color(0xffeeeeee);
-    private float totalAngle = 2 * Mathf.PI;
+    private float totalAngle;
     private List<Color> colors;
     private List<float> stops;
-
+    Animation<float> animation;
     public override void initState()
     {
         base.initState();
+        totalAngle = 6.28f;
         widget.controoler = new AnimationController(vsync: this, duration: new System.TimeSpan(0, 0, seconds: 3));
+        animation = new FloatTween(0, 1).animate(widget.controoler);
         bool isForward = true;
+        widget.controoler.addListener(() => { setState(); });
         widget.controoler.addStatusListener((status) =>
         {
             if (status == AnimationStatus.forward)
@@ -400,8 +415,7 @@ public class test : SingleTickerProviderStateMixin<CircularProgress>
                     widget.controoler.reverse();
                 else
                     widget.controoler.forward();
-            }
-
+            }     
         });
         widget.controoler.forward();
 
@@ -412,29 +426,30 @@ public class test : SingleTickerProviderStateMixin<CircularProgress>
         float offset = 0;
 
         colors = new List<Color>();
-        colors.Add(new Color(0xff0000CD));
-        colors.Add(new Color(0xffFF00FF));
+        colors.Add(new Color(0xffff9a9e));
+        colors.Add(new Color(0xfffad0c4));
         radius = 50;
         strokeWidth = 10;
         value = 0.2f;
 
-        return Transform.rotate(
-                alignment: Alignment.bottomCenter,
-                degree: Mathf.PI * 2,
-                child: new CustomPaint(
-                size: Size.fromRadius(radius),
-                painter: new CircularProgressPainter(
-                        strokeWidth: strokeWidth,
-                        strokeCapRound: false,
-                        backgroundColor: backgroundColor,
-                        value: widget.controoler.value,
-                        total: totalAngle,
-                        radius: radius,
-                        colors: colors
+        return new Container(color:new Color(0xffffffff),
+            child:Transform.rotate(
+                    alignment: Alignment.bottomCenter,
+                    degree: 6.28f,
+                    child: new CustomPaint(
+                    size: Size.fromRadius(radius),
+                    painter: new CircularProgressPainter(
+                            strokeWidth: strokeWidth,
+                            strokeCapRound: false,
+                            backgroundColor: backgroundColor,
+                            value: animation.value,
+                            total: totalAngle,
+                            radius: radius,
+                            colors: colors
+                        )
                     )
                 )
             );
-
     }
 }
 
@@ -476,10 +491,9 @@ public class CircularProgressPainter : CustomPainter
     {
         size = Size.fromRadius(radius);
         float offset = strokeWidth / 2;
-        float value = this.value;
-        value = value.clamp(0.0f, 1.0f) * total;
+        float value =this.value;
+        value = value.clamp(0.0f, 1.0f)*total;
         float start = 0;
-
 
         if (strokeCapRound)
         {
@@ -487,22 +501,34 @@ public class CircularProgressPainter : CustomPainter
         }
 
         Rect rect = new Offset(offset, offset) & new Size(size.width - strokeWidth, size.height - strokeWidth);
-        Paint paint = new Paint()
+        new Paint
         {
             strokeCap = strokeCapRound ? StrokeCap.round : StrokeCap.butt,
             style = PaintingStyle.stroke,
             strokeWidth = this.strokeWidth
-        };
-
-        paint.color = backgroundColor;
-        canvas.drawArc(rect, start, total, false, paint);
-
-
+        }.color = backgroundColor;
+        canvas.drawArc(rect, start, total, false, new Paint
+        {
+            strokeCap = strokeCapRound ? StrokeCap.round : StrokeCap.butt,
+            style = PaintingStyle.stroke,
+            strokeWidth = this.strokeWidth
+        });
+        //canvas.drawRect(rect, paint);
         if (value > 0)
         {
-            paint.shader = new SweepGradient(startAngle: 0, endAngle: value, colors: colors, stops: stops).createShader(rect);
+            new Paint
+            {
+                strokeCap = strokeCapRound ? StrokeCap.round : StrokeCap.butt,
+                style = PaintingStyle.stroke,
+                strokeWidth = this.strokeWidth
+            }.shader = new SweepGradient(startAngle: 0, endAngle: value, colors: colors, stops: stops).createShader(rect);
+            canvas.drawArc(rect, start, value, false, new Paint
+            {
+                strokeCap = strokeCapRound ? StrokeCap.round : StrokeCap.butt,
+                style = PaintingStyle.stroke,
+                strokeWidth = this.strokeWidth
+            });
         }
-        canvas.drawArc(rect, start, value, false, paint);
     }
 
     public void removeListener(VoidCallback listener)
@@ -535,8 +561,8 @@ public class ResultState : State<Resultfulstate>
     public override void initState()
     {
         base.initState();
-        string json = BaiduAI.ResultString;
-        switch (BaiduAI.detectType)
+        string json = BaiduAI.GetBaiduAI.ResultString;
+        switch (BaiduAI.GetBaiduAI.detectType)
         {
             case DetectType.Dish:
                 baseData = JsonUtility.FromJson<DishData>(json);
@@ -569,12 +595,12 @@ public class ResultState : State<Resultfulstate>
     public override Widget build(BuildContext context)
     { 
         string keyword = ApplicationCanvas.language.resultLanguage.title;
-        string image_url = Application.streamingAssetsPath+"/"+ ApplicationCanvas.language.resultLanguage.headerImage;
+        string image_url = "file:///"+Application.streamingAssetsPath+"/"+ ApplicationCanvas.language.resultLanguage.headerImage;
         string description = ApplicationCanvas.language.resultLanguage.descript;
         string baike_url = string.Empty;
 
 
-        switch (BaiduAI.detectType)
+        switch (BaiduAI.GetBaiduAI.detectType)
         {
             case DetectType.Dish:
                 DishData dishData = baseData as DishData;
